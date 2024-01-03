@@ -1,76 +1,137 @@
-local composer = require( "composer" )
+local composer = require("composer")
 
 local scene = composer.newScene()
 
--- -----------------------------------------------------------------------------------
--- Code outside of the scene event functions below will only be executed ONCE unless
--- the scene is removed entirely (not recycled) via "composer.removeScene()"
--- -----------------------------------------------------------------------------------
+local player
+local playerSpeed = 2
+local playerXSpeed, playerYSpeed = 0, 0
 
+local bulletSpeed = 5
+local bulletGroup = display.newGroup()
 
-
-
--- -----------------------------------------------------------------------------------
--- Scene event functions
--- -----------------------------------------------------------------------------------
-
--- create()
-function scene:create( event )
-
-    local sceneGroup = self.view
-    -- Code here runs when the scene is first created but has not yet appeared on screen
-
+local function updateMovement()
+    -- Pelaajan liikkeen päivitys
+    player.x = player.x + playerXSpeed
+    player.y = player.y + playerYSpeed
 end
 
+local function trackPlayer(event)
+    -- Hiiren seuraus ja pelaajan suunnan päivitys
+    local deltaX = event.x - player.x
+    local deltaY = event.y - player.y
+    local a = math.atan2(deltaY, deltaX)
 
--- show()
-function scene:show( event )
+    local playerRotation = math.deg(a) + 90
+    playerRotation = playerRotation % 360
 
-    local sceneGroup = self.view
-    local phase = event.phase
+    player.rotation = playerRotation
+end
 
-    if ( phase == "will" ) then
-        -- Code here runs when the scene is still off screen (but is about to come on screen)
+local function updateBullets()
+    -- Ammusten päivitys ja poistaminen, jos ne menevät näytön ulkopuolelle
+    for i = bulletGroup.numChildren, 1, -1 do
+        local bullet = bulletGroup[i]
 
-    elseif ( phase == "did" ) then
-        -- Code here runs when the scene is entirely on screen
+        if bullet then
+            bullet.x = bullet.x + bullet.xSpeed
+            bullet.y = bullet.y + bullet.ySpeed
 
+            if bullet.x < 0 or bullet.x > display.contentWidth or bullet.y < 0 or bullet.y > display.contentHeight then
+                bullet:removeSelf()
+            end
+        end
     end
 end
 
 
--- hide()
-function scene:hide( event )
 
+local function fireBullet()
+    -- Ammuksen luominen ja liikkeen määrittäminen pelaajan suunnan perusteella
+    local bullet = display.newRect(player.x, player.y, 10, 5)
+    bullet:setFillColor(0, 1, 0)
+
+    local a = math.rad(player.rotation - 90)
+    local bulletXSpeed = bulletSpeed * math.cos(a)
+    local bulletYSpeed = bulletSpeed * math.sin(a)
+
+    bullet.xSpeed = bulletXSpeed
+    bullet.ySpeed = bulletYSpeed
+
+    bulletGroup:insert(bullet)
+
+    print("Bullet created at", bullet.x, bullet.y)
+end
+local function handleMouseClick(event)
+    -- Hiiren klikkauksen käsittely ja ammuksen laukaisu
+    if event.phase == "began" then
+        fireBullet()
+        print("Bullet fired!")
+    end
+end
+local function handleKey(event)
+    -- Näppäinpainallusten käsittely pelaajan liikkumiseksi
+    if event.phase == "down" or event.phase == "up" then
+        local speedChange = (event.phase == "down") and playerSpeed or 0
+
+        if event.keyName == "w" then
+            playerYSpeed = -speedChange
+        elseif event.keyName == "s" then
+            playerYSpeed = speedChange
+        elseif event.keyName == "a" then
+            playerXSpeed = -speedChange
+        elseif event.keyName == "d" then
+            playerXSpeed = speedChange
+        end
+    end
+    return true
+end
+
+function scene:create(event)
+    local sceneGroup = self.view
+
+    -- Pelaajan luominen
+    player = display.newImage("Images/player.png", display.contentCenterX, display.contentCenterY)
+
+    -- Kuuntelijoiden lisääminen tapahtumiin
+    Runtime:addEventListener("mouse", trackPlayer)
+    Runtime:addEventListener("key", handleKey)
+    Runtime:addEventListener("enterFrame", updateMovement)
+    Runtime:addEventListener("enterFrame", updateBullets)
+    Runtime:addEventListener("touch", handleMouseClick)
+
+end
+
+function scene:show(event)
     local sceneGroup = self.view
     local phase = event.phase
 
-    if ( phase == "will" ) then
-        -- Code here runs when the scene is on screen (but is about to go off screen)
-
-    elseif ( phase == "did" ) then
-        -- Code here runs immediately after the scene goes entirely off screen
-
+    if phase == "will" then
+        -- Tapahtuu ennen kuin näkymä tulee näkyväksi
+    elseif phase == "did" then
+        -- Tapahtuu kun näkymä on kokonaan näkyvissä
     end
 end
 
-
--- destroy()
-function scene:destroy( event )
-
+function scene:hide(event)
     local sceneGroup = self.view
-    -- Code here runs prior to the removal of scene's view
+    local phase = event.phase
 
+    if phase == "will" then
+        -- Tapahtuu ennen kuin näkymä poistuu näkyvistä
+    elseif phase == "did" then
+        -- Tapahtuu heti kun näkymä on kokonaan poissa näkyvistä
+    end
 end
 
+function scene:destroy(event)
+    local sceneGroup = self.view
+    -- Tapahtuu ennen kuin näkymä tuhoutuu
+end
 
--- -----------------------------------------------------------------------------------
--- Scene event function listeners
--- -----------------------------------------------------------------------------------
-scene:addEventListener( "create", scene )
-scene:addEventListener( "show", scene )
-scene:addEventListener( "hide", scene )
-scene:addEventListener( "destroy", scene )
--- -----------------------------------------------------------------------------------
+-- Kuuntelijoiden lisääminen tapahtumiin
+scene:addEventListener("create", scene)
+scene:addEventListener("show", scene)
+scene:addEventListener("hide", scene)
+scene:addEventListener("destroy", scene)
 
 return scene
